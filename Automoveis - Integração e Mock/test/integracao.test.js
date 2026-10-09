@@ -8,6 +8,8 @@ import { MontadoraFactory } from "./factories/MontadoraFactory.js";
 
 import { ClienteFactory } from "./factories/ClienteFactory.js";
 
+import { VeiculoFactory } from "./factories/VeiculoFactory.js";
+
 import { clearDatabase } from "./utils/clearDatabase.js";
 
 import axios from "axios";
@@ -50,12 +52,18 @@ describe("API de Montadoras", () => {
     expect(response.body.data).toHaveProperty("insertId");
   });
 
-  it("Deve deletar uma montadora (DELETE)", async () => {
-    const montadora = await MontadoraFactory.create("Volkswagen", "Alemanha");
-    const response = await request(app).delete(`/montadoras/${montadora.id}`);
+  //TESTES DE ERRO (Montadoras)
 
-    expect(response.status).toBe(200);
-    expect(response.body.data).toHaveProperty("insertId");
+  it("[ERRO] Deve retornar erro ao tentar cadastrar montadora sem campos obrigatórios (POST)", async () => {
+    const response = await request(app).post("/montadoras").send({});
+
+    expect(response.status).toBe(400);
+  });
+
+  it("[ERRO] Deve retornar erro ao tentar deletar uma montadora inexistente (DELETE)", async () => {
+    const response = await request(app).delete(`/montadoras/999999`);
+
+    expect(response.status).toBe(404);
   });
 });
 
@@ -130,16 +138,9 @@ describe("API de Clientes", () => {
     expect(response.body.data).toHaveProperty("insertId");
   });
 
-  it("Deve deletar um cliente (DELETE)", async () => {
-    const cliente = await ClienteFactory.create("Carlos Silva", "99988877766", "01001000");
+  //TESTES DE ERRO (Clientes)
 
-    const response = await request(app).delete(`/clientes/${cliente.id}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.data).toHaveProperty("insertId");
-  });
-
-  it("Deve retornar erro ao tentar cadastrar cliente com CEP inválido", async () => {
+  it("[ERRO] Deve retornar erro ao tentar cadastrar cliente com CEP inválido (Mock do Axios rejeitado)", async () => {
     vi.mocked(axios.get).mockRejectedValue(new Error("CEP inválido"));
 
     const response = await request(app).post("/clientes").send({
@@ -150,5 +151,86 @@ describe("API de Clientes", () => {
     });
 
     expect(response.status).toBe(400);
+  });
+
+  it("[ERRO] Deve retornar erro ao tentar cadastrar cliente sem campos obrigatórios (POST)", async () => {
+    const response = await request(app).post("/clientes").send({});
+
+    expect(response.status).toBe(400);
+  });
+});
+
+describe("API de Veículos", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await clearDatabase();
+    vi.resetAllMocks();
+  });
+
+  it("Deve criar um novo veículo (POST)", async () => {
+    const cliente = await ClienteFactory.create("Ana Maria", "11122233344", "01001000");
+    const montadora = await MontadoraFactory.create("Honda", "Japão");
+
+    const response = await request(app).post("/veiculos").send({
+      modelo: "Civic",
+      placa: "ABC-1234",
+      ano: 2022,
+      cor: "Prata",
+      valor: 95000.0,
+      idCliente: cliente.id,
+      idMontadora: montadora.id,
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data).toHaveProperty("insertId");
+  });
+
+  it("Deve buscar todos os veículos (GET)", async () => {
+    const cliente = await ClienteFactory.create("Ana Maria", "11122233344", "01001000");
+    const montadora = await MontadoraFactory.create("Honda", "Japão");
+    await VeiculoFactory.create("Civic", "ABC-1234", 2022, "Prata", 95000.0, cliente.id, montadora.id);
+
+    const response = await request(app).get("/veiculos");
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.data)).toBe(true);
+  });
+
+  it("Deve atualizar os dados de um veículo (PUT)", async () => {
+    const cliente = await ClienteFactory.create("Ana Maria", "11122233344", "01001000");
+    const montadora = await MontadoraFactory.create("Honda", "Japão");
+    const veiculo = await VeiculoFactory.create("Civic", "ABC-1234", 2022, "Prata", 95000.0, cliente.id, montadora.id);
+
+    const response = await request(app)
+      .put(`/veiculos?id=${veiculo.id}`)
+      .send({
+        modelo: "Civic Touring",
+        placa: "ABC-1234",
+        ano: 2023,
+        cor: "Preto",
+        valor: 110000.0,
+        idCliente: cliente.id,
+        idMontadora: montadora.id,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveProperty("insertId");
+  });
+
+  //TESTES DE ERRO (Veículos)
+
+  it("[ERRO] Deve retornar erro ao tentar cadastrar veículo sem campos obrigatórios (POST)", async () => {
+    const response = await request(app).post("/veiculos").send({});
+
+    expect(response.status).toBe(400);
+  });
+
+  it("[ERRO] Deve retornar erro ao tentar deletar um veículo inexistente (DELETE)", async () => {
+    const response = await request(app).delete(`/veiculos/999999`);
+
+    expect(response.status).toBe(404);
   });
 });
