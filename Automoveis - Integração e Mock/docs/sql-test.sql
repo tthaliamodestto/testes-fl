@@ -1,6 +1,6 @@
 CREATE DATABASE IF NOT EXISTS loja_motors_test;
 
-USE loja_motors;
+USE loja_motors_test;
 
 DROP TABLE IF EXISTS veiculos;
 DROP TABLE IF EXISTS clientes;
