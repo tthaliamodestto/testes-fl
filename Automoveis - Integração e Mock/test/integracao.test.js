@@ -1,17 +1,10 @@
 import app from "../src/app.js";
-
 import request from "supertest";
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { MontadoraFactory } from "./factories/MontadoraFactory.js";
-
 import { ClienteFactory } from "./factories/ClienteFactory.js";
-
 import { VeiculoFactory } from "./factories/VeiculoFactory.js";
-
 import { clearDatabase } from "./utils/clearDatabase.js";
-
 import axios from "axios";
 
 vi.mock("axios");
@@ -42,6 +35,14 @@ describe("API de Montadoras", () => {
     expect(response.status).toBe(200);
   });
 
+  it("Deve buscar uma montadora específica por ID (GET)", async () => {
+    const montadora = await MontadoraFactory.create("Ford", "EUA");
+    const response = await request(app).get(`/montadoras/${montadora.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.nome).toBe("Ford");
+  });
+
   it("Deve atualizar uma montadora (PUT)", async () => {
     const montadora = await MontadoraFactory.create("Koenigsegg", "Finlandia");
     const response = await request(app)
@@ -52,7 +53,14 @@ describe("API de Montadoras", () => {
     expect(response.body.data).toHaveProperty("insertId");
   });
 
-  //TESTES DE ERRO (Montadoras)
+  it("Deve deletar uma montadora existente (DELETE)", async () => {
+    const montadora = await MontadoraFactory.create("Fiat", "Itália");
+    const response = await request(app).delete(`/montadoras/${montadora.id}`);
+
+    expect(response.status).toBe(200);
+  });
+
+  // TESTES DE ERRO (Montadoras)
 
   it("[ERRO] Deve retornar erro ao tentar cadastrar montadora sem campos obrigatórios (POST)", async () => {
     const response = await request(app).post("/montadoras").send({});
@@ -64,6 +72,28 @@ describe("API de Montadoras", () => {
     const response = await request(app).delete(`/montadoras/999999`);
 
     expect(response.status).toBe(404);
+  });
+
+  it("[ERRO] Deve retornar erro ao buscar montadora por ID inexistente (GET)", async () => {
+    const response = await request(app).get("/montadoras/999999");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("[ERRO] Deve retornar erro ao tentar atualizar montadora inexistente (PUT)", async () => {
+    const response = await request(app)
+      .put("/montadoras?id=999999")
+      .send({ nome: "Marca Fake", pais: "Desconhecido" });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("[ERRO] Deve retornar erro ao tentar cadastrar montadora com nome duplicado (POST)", async () => {
+    const response = await request(app)
+      .post("/montadoras")
+      .send({ nome: "Toyota", pais: "Japão" });
+
+    expect(response.status).toBe(400);
   });
 });
 
@@ -111,6 +141,14 @@ describe("API de Clientes", () => {
     expect(Array.isArray(response.body.data)).toBe(true);
   });
 
+  it("Deve buscar um cliente específico por ID (GET)", async () => {
+    const cliente = await ClienteFactory.create("Maria Silva", "12312312388", "01001000");
+    const response = await request(app).get(`/clientes/${cliente.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.nome).toBe("Maria Silva");
+  });
+
   it("Deve atualizar os dados de um cliente (PUT)", async () => {
     const cliente = await ClienteFactory.create("Bob Burnquist", "55566677788", "01001000");
 
@@ -138,7 +176,14 @@ describe("API de Clientes", () => {
     expect(response.body.data).toHaveProperty("insertId");
   });
 
-  //TESTES DE ERRO (Clientes)
+  it("Deve deletar um cliente existente (DELETE)", async () => {
+    const cliente = await ClienteFactory.create("Carlos Souza", "44455566677", "01001000");
+    const response = await request(app).delete(`/clientes/${cliente.id}`);
+
+    expect(response.status).toBe(200);
+  });
+
+  // TESTES DE ERRO (Clientes)
 
   it("[ERRO] Deve retornar erro ao tentar cadastrar cliente com CEP inválido (Mock do Axios rejeitado)", async () => {
     vi.mocked(axios.get).mockRejectedValue(new Error("CEP inválido"));
@@ -155,6 +200,31 @@ describe("API de Clientes", () => {
 
   it("[ERRO] Deve retornar erro ao tentar cadastrar cliente sem campos obrigatórios (POST)", async () => {
     const response = await request(app).post("/clientes").send({});
+
+    expect(response.status).toBe(400);
+  });
+
+  it("[ERRO] Deve retornar erro ao buscar cliente por ID inexistente (GET)", async () => {
+    const response = await request(app).get("/clientes/999999");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("[ERRO] Deve retornar erro ao tentar deletar cliente inexistente (DELETE)", async () => {
+    const response = await request(app).delete("/clientes/999999");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("[ERRO] Deve retornar erro ao tentar cadastrar cliente com CPF já existente (POST)", async () => {
+    await ClienteFactory.create("Cliente Existente", "12345678901", "01001000");
+
+    const response = await request(app).post("/clientes").send({
+      nome: "Cliente Duplicado",
+      cpf: "12345678901",
+      cep: "01001000",
+      numero: "100",
+    });
 
     expect(response.status).toBe(400);
   });
@@ -199,6 +269,17 @@ describe("API de Veículos", () => {
     expect(Array.isArray(response.body.data)).toBe(true);
   });
 
+  it("Deve buscar um veículo específico por ID (GET)", async () => {
+    const cliente = await ClienteFactory.create("Ana Maria", "11122233344", "01001000");
+    const montadora = await MontadoraFactory.create("Honda", "Japão");
+    const veiculo = await VeiculoFactory.create("Corolla", "DEF-5678", 2021, "Branco", 100000.0, cliente.id, montadora.id);
+
+    const response = await request(app).get(`/veiculos/${veiculo.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.modelo).toBe("Corolla");
+  });
+
   it("Deve atualizar os dados de um veículo (PUT)", async () => {
     const cliente = await ClienteFactory.create("Ana Maria", "11122233344", "01001000");
     const montadora = await MontadoraFactory.create("Honda", "Japão");
@@ -220,7 +301,17 @@ describe("API de Veículos", () => {
     expect(response.body.data).toHaveProperty("insertId");
   });
 
-  //TESTES DE ERRO (Veículos)
+  it("Deve deletar um veículo existente (DELETE)", async () => {
+    const cliente = await ClienteFactory.create("Ana Maria", "11122233344", "01001000");
+    const montadora = await MontadoraFactory.create("Honda", "Japão");
+    const veiculo = await VeiculoFactory.create("Fit", "GHI-9012", 2019, "Cinza", 60000.0, cliente.id, montadora.id);
+
+    const response = await request(app).delete(`/veiculos/${veiculo.id}`);
+
+    expect(response.status).toBe(200);
+  });
+
+  // TESTES DE ERRO (Veículos)
 
   it("[ERRO] Deve retornar erro ao tentar cadastrar veículo sem campos obrigatórios (POST)", async () => {
     const response = await request(app).post("/veiculos").send({});
@@ -232,5 +323,43 @@ describe("API de Veículos", () => {
     const response = await request(app).delete(`/veiculos/999999`);
 
     expect(response.status).toBe(404);
+  });
+
+  it("[ERRO] Deve retornar erro ao buscar veículo por ID inexistente (GET)", async () => {
+    const response = await request(app).get("/veiculos/999999");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("[ERRO] Deve retornar erro ao cadastrar veículo associado a cliente inexistente (POST)", async () => {
+    const montadora = await MontadoraFactory.create("Honda", "Japão");
+
+    const response = await request(app).post("/veiculos").send({
+      modelo: "Civic",
+      placa: "ABC-1234",
+      ano: 2022,
+      cor: "Prata",
+      valor: 95000.0,
+      idCliente: 999999,
+      idMontadora: montadora.id,
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("[ERRO] Deve retornar erro ao cadastrar veículo associado a montadora inexistente (POST)", async () => {
+    const cliente = await ClienteFactory.create("Ana Maria", "11122233344", "01001000");
+
+    const response = await request(app).post("/veiculos").send({
+      modelo: "Civic",
+      placa: "ABC-1234",
+      ano: 2022,
+      cor: "Prata",
+      valor: 95000.0,
+      idCliente: cliente.id,
+      idMontadora: 999999,
+    });
+
+    expect(response.status).toBe(400);
   });
 });
